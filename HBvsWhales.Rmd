@@ -1,0 +1,220 @@
+---
+title: "Patterns in humpback whale and vessel acoustic detections following the Anthropause in Southeast Alaska"
+author: "Melanie Smith"
+date: "2022-12-03"
+header-includes:
+  - \usepackage{placeins}
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, out.width = "60%" , out.height = "60%", fig.align = "center" )
+
+knitr::knit_hooks$set(plot = function(x, options)  {
+  paste0(knitr::hook_plot_tex(x, options), "\n\\FloatBarrier\n")
+})
+
+library(tidyverse)
+library(jcolors)
+library(lubridate)
+library(RColorBrewer)
+
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(ggspatial)
+
+```
+
+# Introduction
+
+In the marine environment, sound is the most prominent modality for animal communication due to its efficient transmission in water (Duarte et al, 2021; Cholewiak et al, 2018). However within the last 100 years, anthropogenic noise has greatly increased in the ocean, particularly low frequency motorized vessel noise (Duarte et al, 2021).  Vessels can mask important biological signals of marine organisms that utilize the same frequency range, particularly baleen whales that utilize an overlapping frequency range  (Cholewiak et al, 2018; Gabriele et al 2018; Fournet et al, 2018). 
+
+Although humpback whales (Megaptera novaeangliae) are well known for their elaborate songs, social, or non-song, calls are much more common on Alaskan feeding grounds (Silber et al, 1986). These two types of vocalizations differ in acoustic properties and risk of being masked. In Glacier Bay National Park (GBNP), singing whales experienced a 13%-28% reduction in communication space and social calls experienced a 18%-51% reduction (Gabriele et al, 2018). Additionally,  the probability of a whale calling in GBNP decreased by 9% for every 1 dB increase in ambient noise (Fournet et al, 2018). Humpback whales exhibit high site fidelity on feeding grounds, limiting their ability to change locations to quieter areas regardless of acoustic disturbance (Baker et al 1986).  To compensate for increased vessel noise, they call louder and alter the timing of calling behavior to avoid overlap with masking sources (Fournet et al, 2018, Gabriele et al, 2018). The extent to which these limited strategies impact whale communication and energetic costs remains unknown.
+
+Large shipping traffic was abruptly disrupted during the coronavirus pandemic, and thus reduced low frequency noise in the oceans. (Dirzka and Acciaro, 2022; Ryan et al, 2021; Thomason and Barclay, 2020;  Sertlek, 2021; Fournet et al, (unpublished data). Additionally, cruise ship operators that frequent Southeast Alaska ceased scheduled routes under mandates from the U.S. Center for Disease Control (CDC) (Federal Register, 2020). Therefore, this period of time when large-scale human activity ceased, in both terrestrial and marine environments, became known as the Anthropause (Rutz et al, 2020). 
+
+In this study, we examined acoustic data collected from an unmanaged site near Juneau, and a managed site in Glacier Bay National Park (GBNP) to understand how the impact of the Anthropause on vessel noise and humpback whale acoustics differs. Our objective is to determine differences in the presence of vessel noise and humpback whale calls between the two sites during the Anthropause in 2020. We hypothesize there will be increased presence of vessel noise and decreased presence of humpback whale (Megaptera novangliae) vocalizations in Juneau due to no management jurisdiction.
+
+# Methods
+
+### Data Collection
+
+Data was collected continuously from omnidirectional, autonomous hydrophones (ST600; Ocean Instruments). One hydrophone was placed in each study site in Southeast Alaska, one in GBNP and the one in North Pass, near Juneau. Specific deployment dates varied depending on weather and staff availability. In GBNP, the hydrophone was deployed August 7 - August 21 in 2020, July 29 - Aug 11 in 2021, and August 1 - August 14 in 2022. In Juneau, the hydrophone was deployed August 7 - August 21 in 2020, August 1 - August 14 in 2021 and 2022 (Figure 1).
+
+```{r prep for map, include = FALSE}
+
+#Make study area map with hydrophone points
+
+world <- ne_countries(scale = "medium", returnclass = "sf")
+class(world)
+
+hydrophones <- tibble::tribble( 
+  ~city,           ~lat,     ~lon,
+  "GLBA",   58.4500, -136,  
+  "JNU", 58.4742, -134.9306, 
+)
+```
+
+```{r make study map, messages = FALSE, fig.cap='Locations of hydrophones across all years shown in red.'}
+
+ggplot(data = world) +
+  geom_sf(color="black", fill="#666666") +
+  annotation_scale(location = "bl", width_hint = 0.2) +
+ # annotation_north_arrow(location = "bl", which_north = "true", 
+                         #pad_x = unit(0.2, "in"), pad_y = unit(0.2, "in"),
+                         #style = north_arrow_fancy_orienteering) +
+  coord_sf(xlim = c(-138, -133), ylim = c(57.5, 59.5), expand = FALSE) +
+  annotate(geom = "text", x = -137.30, y = 58.15, label = "Gulf of Alaska", 
+           fontface = "italic", color = "black", size = 5) +
+  annotate(geom = "text", x = -133.75, y = 59.25, label = "Canada", 
+           fontface = "italic", color = "black", size = 5) +
+  annotate(geom = "label", x = -136.5, y = 58.6, label = "Glacier Bay National Park", 
+           label.padding=unit(0.1, "lines"), fontface = "bold", color = "black", size = 3) + 
+  annotate(geom = "label", x = -134.5, y = 58.45, label = "Juneau", 
+           label.padding=unit(0.1, "lines"), fontface = "bold", color = "black", size = 3) +
+  theme(panel.grid.major = element_line(color = gray(.5), linetype = 'dashed', size = 0),
+             panel.background=element_rect(fill = "#99CCFF")) +
+  geom_point(data = hydrophones, mapping = aes(x = lon, y = lat), colour = "dark red", size = 2) +
+  labs(x="Longitude", y="Latitude") +
+  ggtitle('Hydrophone Deployment Sites in Southeast Alaska') +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+### Data Analysis
+
+Using Raven Pro 1.6.3 (K. Lisa Yang Center, 2022), the first 5 minutes of each hour will be manually annotated aurally and visually for the presence of a motorized vessel and any humpback whale vocalization in each bin, totaling 85 bins or 420 minutes. The independent variables will be the site (managed or unmanaged), year, and month, and the dependent variables will be vessel noise presence and humpback whale vocalization presence.
+
+Two different general linear models were created in R (2022) to understand factors influencing humpback whale and vessel acoustic presence. Humpback whale detections were modeled as a function of vessel presence x year + vessel presence x site + site x year. Vessel presence was modeled as a function of site x year.
+
+```{r load and clean data}
+#Load Presence Absence data
+data <- read.csv("/Users/melaniesmith/Documents/R/Soundscape/Data/HBV_PresenceAbsence.csv")
+
+#Make Y and N Binomials
+data$HB<-ifelse(data$HB=="Y",1,0)
+data$Vessel<-ifelse(data$Vessel=="Y",1,0)
+
+#Make Date and Times Columns for Analysis
+data$Date <- as.Date(data$Date, format = "%m/%d/%y")
+data$Year <-  as.factor(format(data$Date, format = "%Y"))
+data[c("Hour","MinSec")] <- str_split_fixed(data$Time, ':', 2)
+data$Hour <- as.integer(data$Hour)
+data <- data[,-9] #remove extra column
+
+
+#Create new dataset where it is vertical
+data2 <- gather(data, key = "Type", value = "Presence", HB, Vessel)
+#Remove 0s
+data2_no0 <- filter_if(data2, is.numeric, all_vars((.) != 0))
+
+```
+
+# Results
+
+In total, 84 bins (420 minutes) were examined for the acoustic presence of humpback whales and vessels. Hourly presence of humpbacks was opposite to the hourly presence of vessels, with humpbacks being detected more frequently in the first 12 hours of the day (Figure 2). Across years and between sites, humpback whale detections declined as year increased in Glacier Bay, while vessels increased as year increases. This symmetrical pattern is not present in Juneau, where Humpback whale detections were lowest in 2020 but then increased in 2021, despite vessel detections staying the same from 2020 to 2021. In contrast to Glacier Bay, Juneau had the least vessel detections in 2022 (Figure 2). These patterns are still apparent when examining percent average of detections (Figure 3).
+
+```{r plot presence at each hour, fig.cap= 'Daily distribution of acoustic presence across all sites and years.'}
+#Create histogram of presence at each hour
+labels <- c(HB = "Humpback Whales", Vessel = "Vessels")
+
+ggplot(data = data2_no0, aes(x= Hour)) + geom_bar(position=position_dodge()) + 
+  facet_wrap(~ Type, labeller=labeller(Type = labels)) +
+  labs(x="Hour of Day", y="Number of Observations") +
+  ggtitle('Daily Pattern of Acoustic Detections') +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r plot observations, fig.cap='Number of bins with respective acoustic observation. HB = humpback whale.'}
+
+#Plot number of observations
+labels <- c(GLBA = "Glacier Bay", JNU = "Juneau")
+
+ggplot(data2_no0, aes(x= Type, fill=Year)) + geom_bar(position=position_dodge()) + 
+  facet_wrap(~ Site, labeller=labeller(Site = labels)) +
+  scale_fill_manual(values=c("#99CCFF", "#3366CC","darkblue")) +
+  labs(x="Type", y="Number of Observations") +
+  ggtitle('Acoustic Detections Across Sites and Years') +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r plot avergaes, fig.cap= 'Percent average detections of each type of acoustic observation.'}
+#Plot Averages
+
+avg <- aggregate(Presence~Type+Year+Site,data2,mean)
+avg$Presence <- avg$Presence*100
+labels <- c(GLBA = "Glacier Bay", JNU = "Juneau")
+
+ggplot(data = avg, aes(x=Year, y=Presence, color=Type)) + geom_point() + 
+  facet_wrap(~ Site, labeller=labeller(Site = labels)) +
+  scale_color_manual(values=c("darkblue","darkgreen")) +
+  labs(x="Year", y="Percent Average of Acoustic Detections") +
+  ylim(0,100) +
+  ggtitle('Percent Avergae of Acoustic Detections Across Sites and Years') +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+```{r create model, include=FALSE}
+#Really bad Stats -> create rough model
+
+modHB <- glm(HB~Vessel*Year+Vessel*Site+Site*Year, data=data)
+HBmodsum <- summary(modHB)
+
+modV <- glm(Vessel~Site*Year, data=data)
+Vesselmodsum <- summary(modV)
+```
+The general linear models are likely not the best fit for this data and the pilot sample size needs to be expanded to appropriately model important variables. Despite the limitations, these models are still important for initially understanding the data. Humpback whale detections were significantly lower in Juneau than Glacier Bay (p = `r coef(HBmodsum)[5,4]`). In Juneau, humpback detections significantly increased from 2020 to 2021 (p = `r coef(HBmodsum)[9,4]`) and 2020 to 2022 (p = `r coef(HBmodsum)[10,4]`). For vessels, detections were significantly higher overall in 2022 (p = `r coef(Vesselmodsum)[4,4]`), but were lower in Juneau in 2022 (p = `r coef(Vesselmodsum)[6,4]`). 
+
+# Discussion
+
+All motorized vessels that passed within range of the hydrophones were recorded, however silent non-motorized vessels were unlikely to be heard over typical flow noise. Additionally, humpback whales may have been near the hydrophone but were not vocalizing. A humpback whale could also have been vocalizing but could have not been heard on the hydrophone due to masking from vessel or wind noise. However, whether whales were or were not detected by the hydrophone is ecologically relevant as it likely indicates conspecifics were also unable to hear the vocalization.
+
+### Trends in Vessel Acoustic Detections
+
+Decreased vessel presence during the first 12 hours of the day corresponds with the time when people are likely asleep. Cruise ships may also depart their destination later at night, allowing their guests to spend the evening in one location and wake up in another. Cruise ship schedules or AIS data can be examined to determine what times they passed the hydrophone. 
+
+Following the Anthropause, Glacier Bay saw an increase in vessel presence. This is likely a result of the return of cruise ships and tour groups in 2022. While this study did not examine data pre-Anthropause, other studies have shown that there was decreased vessel traffic in 2020 compared to 2019 (Gabriele et al., 2021). Therefore, the increase in vessel detections in 2022 likely signals a return toward pre-Anthropause levels. Conversely, Juneau saw a slight decrease in vessels following the Anthropause. This may correlate to a decrease in recreational boating as other social options became available as COVID-19 infections decreased (Longden et al., 2022). No pre-Anthropause data exists for Juneau, however we can assume it follows a trend similar to Glacier Bay and returned to per-Anthropause levels in 2022.
+
+### Trends in Humpback Whale Detections
+
+Broadly, humpback whale detections were negatively associated with vessel detections. In Glacier Bay, humpback whale detections decreased as year and vessel detections increased. A similar pattern was observed with diel patterns of humpback whale detections. However, expanding the sample size will provide better insight into whether this trend is accurate. Studies have shown humpback whales are more likely to produce a foraging call during  a rising tide (Barlow et al., 2019). Humpback whales have been well described in their ability to adjust to vessel noise by altering the timing and volume of their vocalizations (Fournet et al., 2018), and this trend is across the longer time spans of this study. Humpbacks are also known to use percussive sounds (slapping body parts on the surface of the water) during areas of high wind noise, but this behavior was not observed in our study and has not been scientifically documented in this region (Dunlop et al., 2010). Therefore, the whales in Southeast Alaska likely do not employ this strategy to preserve communication space.
+
+### Conclusions
+
+This pilot study showed that the Anthropause had a different impact in Glacier Bay and Juneau for vessels and thus humpback whales. Whales were detected more frequently when there was less vessel presence. The next steps for this study are to expand the sample size to examine the first 5-minutes of every half hour of every day across the deployment dates and sites. This will better elucidate important diel factors for both detection types. Once the sample size is expanded, more appropriate models will also be developed to better quantify the impact of time of day, month, year, and site on detections. This study is the first of its kind to examine differences in human impact between a managed and unmanaged marine environment during and after the Anthropause.
+
+# Citations
+
+Barlow, D. R., Fournet, M., and Sharpe, F. (2019). Incorporating tides into the acoustic ecology of humpback whales: Humpback Acoustic Ecology and Tides. Mar Mam Sci 35, 234–251. doi: 10.1111/mms.12534.
+
+Calambokidis, J., Steiger, G. H., Evenson, J. R., Flynn, K. R., Balcomb, K. C., Claridge, D. E., et al. (1996). Interchange and isolation of humpback whales off California nad other North Pacific feeding grounds. Marine Mammal Sci 12, 215–226. doi: 10.1111/j.1748-7692.1996.tb00572.x.
+
+Calambokidis, J., Steiger, G. H., Straley, J. M., Herman, L. M., Cerchio, S., Salden, D. R., et al. (2001). Movements and population structure of humpback whales in the North Pacific. Marine Mammal Sci 17, 769–794. doi: 10.1111/j.1748-7692.2001.tb01298.x.
+
+Dirzka, C., and Acciaro, M. (2022). Global shipping network dynamics during the COVID-19 pandemic’s initial phases. Journal of Transport Geography 99, 103265. doi: 10.1016/j.jtrangeo.2021.103265.
+
+Duarte, C. M., Chapuis, L., Collin, S. P., Costa, D. P., Devassy, R. P., Eguiluz, V. M., et al. (2021). The soundscape of the Anthropocene ocean. Science 371, eaba4658. doi: 10.1126/science.aba4658.
+
+Dunlop, R. A., Cato, D. H., and Noad, M. J. (2010). Your attention please: increasing ambient noise levels elicits a change in communication behaviour in humpback whales (*Megaptera novaeangliae*). Proc. R. Soc. B. 277, 2521–2529. doi: 10.1098/rspb.2009.2319.
+
+Fournet, M., Matthews, L., Gabriele, C., Haver, S., Mellinger, D., and Klinck, H. (2018). Humpback whales *Megaptera novaeangliae* alter calling behavior in response to natural sounds and vessel noise. Mar. Ecol. Prog. Ser. 607, 251–268. doi: 10.3354/meps12784.
+
+Gabriele, C. M., Ponirakis, D. W., Clark, C. W., Womble, J. N., and Vanselow, P. B. S. (2018). Underwater Acoustic Ecology Metrics in an Alaska Marine Protected Area Reveal Marine Mammal Communication Masking and Management Alternatives. Front. Mar. Sci. 5, 270. doi: 10.3389/fmars.2018.00270.
+
+Gabriele, C. M., Ponirakis, D. W., and Klinck, H. (2021). Underwater Sound Levels in Glacier Bay During Reduced Vessel Traffic Due to the COVID-19 Pandemic. Front. Mar. Sci. 8, 674787. doi: 10.3389/fmars.2021.674787.
+
+K. Lisa Yang Center for Conservation Bioacoustics at the Cornell Lab of Ornithology. (2022).
+Raven Pro: Interactive Sound Analysis Software (version 1.6.3).
+
+Longden, E. G., Gillespie, D., Mann, D. A., McHugh, K. A., Rycyk, A. M., Wells, R. S., et al. (2022). Comparison of the marine soundscape before and during the COVID-19 pandemic in dolphin habitat in Sarasota Bay, FL. The Journal of the Acoustical Society of America 152, 3170–3185. doi: 10.1121/10.0015366.
+
+R Core Team. (2022). R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. URL https://www.R-project.org/.
+
+Rutz, C., Loretto, M.-C., Bates, A. E., Davidson, S. C., Duarte, C. M., Jetz, W., et al. (2020). COVID-19 lockdown allows researchers to quantify the effects of human activity on wildlife. Nat Ecol Evol 4, 1156–1159. doi: 10.1038/s41559-020-1237-z.
+
+Ryan, J. P., Joseph, J. E., Margolina, T., Hatch, L. T., Azzara, A., Reyes, A., et al. (2021). Reduction of Low-Frequency Vessel Noise in Monterey Bay National Marine Sanctuary During the COVID-19 Pandemic. Front. Mar. Sci. 8, 656566. doi: 10.3389/fmars.2021.656566.
+
+Sertlek, H. (2021). Hindcasting Soundscapes before and during the COVID-19 Pandemic in Selected Areas of the North Sea and the Adriatic Sea. JMSE 9, 702. doi: 10.3390/jmse9070702.
+
+Thomson, D. J. M., and Barclay, D. R. (2020). Real-time observations of the impact of COVID-19 on underwater noise. The Journal of the Acoustical Society of America 147, 3390–3396. doi: 10.1121/10.0001271.
