@@ -1,0 +1,124 @@
+---
+title: 'Final Project: COVIDscapes'
+author: "Melanie Smith"
+date: "2022-11-15"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(tidyverse)
+library(jcolors)
+library(lubridate)
+
+```
+
+```{r Create Function for Time Stamping}
+
+#Function to timestamp PAMGuide Output
+time.stamp <- function(data, startingtime){
+  starting_time <- as.POSIXct(startingtime, format = "%Y-%m-%d %H:%M:%S")
+  datetime <- c()
+  binMins <- 10 * 60
+  for (i in 1:length(data$X0)) {
+    if (i == 1) {
+      datetime <- append(datetime, starting_time)
+    } else {
+      starting_time <- starting_time + binMins
+      addedtime <- starting_time
+      datetime <- append(datetime, addedtime)
+    }
+  }
+  data$datetime <- datetime
+  data$datetime <- as.character(datetime)
+  data <- data %>% separate(datetime, c("Date", "Time"), sep = " ")
+  data$datetime <- datetime
+  data$Date <- as.Date(data$Date, format = "%Y-%m-%d")
+  #data$Date <- as.numeric(format(data$Date, format = '%j'))
+  data$Time <- as.POSIXct(datetime, format = "%Y-%m-%d %H:%M:%S")
+  data$Time <- format(data$Time, format = '%H:%M:%S')
+  data$Time <- as.POSIXct(paste("2020-08-07",data$Time),format = "%Y-%m-%d %H:%M:%S")
+  
+  #data$Date <- as.character(data$Date)
+  #data$Time <- as.character(data$Time)
+  return(data)
+} #output is still off; not reflecting proper bin, still off
+
+```
+
+## Diel Plots for Noise Values
+
+Below are plots that show daily trends in average noise values averaged over 5 minutes. It is important to note that because noise is measured in decibels (dB), noise measurements are on a logarithmic scale. This means that every 6 dB increase in noise, is equivalent to a doubling in loudness to the human ear. These results are preliminary and additional data calibration between hydrophones is necessary. However, there are differences in noise trends between Glacier Bay National Park and Juneau. Juneau has much more variable noise while Glacier Bay is relatively quiet.
+
+```{r load data, echo=FALSE}
+
+GLBA20 <- read.csv('/Users/melaniesmith/Documents/R/Soundscape/GLBA2020/PAMGuide_Batch_Broadband_Abs_48000ptHannWindow_50pcOlap.csv')
+"08-07-2020 11:47:22"
+starting_time <- as.POSIXct("2020-08-07 11:47:22", format = "%Y-%m-%d %H:%M:%S")
+GLBA20 <- time.stamp(GLBA20, starting_time)
+
+JNU20 <- read.csv('/Users/melaniesmith/Documents/R/Soundscape/JNU2020/PAMGuide_Batch_Broadband_Abs_48000ptHannWindow_50pcOlap.csv')
+starting_time <- as.POSIXct("2020-07-01 00:50:01", format = "%Y-%m-%d %H:%M:%S")
+JNU20 <- time.stamp(JNU20, starting_time)
+
+```
+
+```{r diel plot}
+
+ggplot(data = GLBA20, aes(x= Time, y = Date, fill = X0)) + geom_tile() + 
+  #scale_fill_gradientn(colors = rev(rainbow(4)))
+  scale_fill_jcolors_contin("pal2") + labs(x="Day", y="Time of Day", fill="RMS Broadband Noise (dB)") +
+  ggtitle('Trends in Daily Noise Values in Glacier Bay in 2020')
+
+ggplot(data = JNU20, aes(x= Time, y = Date, fill = X0)) + geom_tile() + 
+  #scale_fill_gradientn(colors = rev(rainbow(4)))
+  scale_fill_jcolors_contin("pal2") + labs(x="Day", y="Time of Day", fill="RMS Broadband Noise (dB") +
+  ggtitle('Trends in Daily Noise Values in Juneau in 2020')
+
+```
+
+## Modeling Variables that Influence Noise
+
+Linear models are likely not complex enough to be appropriate for this data. However, it is still very important o observe trends. Statistical;y, Juneau is louder than Glacier Bay and has more variability in noise values. August also appears to be a noisier month.The models are a decent fit, but I expect models may be improved by trying a general linear model and fixing calibration issues.
+
+
+```{r Merge and Model All Data}
+
+#Merge Noise Data for Sites and Years
+GLBA20$Site <- "GLBA"
+GLBA20$Year <-  as.numeric(format(GLBA20$Date, format = "%Y"))
+GLBA20$Month <- format(GLBA20$Date, format = "%m")
+
+JNU20$Site <- "JNU"
+JNU20$Year <- as.numeric(format(JNU20$Date, format = "%Y"))
+JNU20$Month <- format(JNU20$Date, format = "%m")
+
+
+#Examine all the sites
+
+SoundSites <- rbind(GLBA20, JNU20)
+
+ggplot(data = SoundSites, aes(x= datetime, y = X0, color = Site)) + geom_point()
+  #scale_fill_gradientn(colors = rev(rainbow(4)))
+
+
+#Create basic linear model
+
+mod1 <- lm(data=SoundSites, formula = X0 ~ Site + datetime)
+mod2 <- lm(data=SoundSites, formula = X0 ~ Site + Month)
+
+summary(mod1)
+plot(mod1, which=c(2,1))
+plot(mod1, which=c(2,2))
+
+summary(mod2)
+plot(mod2, which=c(2,1))
+plot(mod2, which=c(2,2))
+
+
+```
+
+## Next Steps
+
+Next I will correct calibration issues and repeat the analyses for Glacier Bay 2021 and Juneau 2021. If data availability allows, I will also include Glacier Bay 2022 and Juneau 2022.
